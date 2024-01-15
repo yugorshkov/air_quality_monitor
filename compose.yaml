@@ -12,5 +12,14 @@ services:
       - "5432:5432"
     restart: always
 
+  metabase:
+    image: metabase/metabase
+    volumes:
+      - mb-data:/metabase-data
+    ports:
+      - "3000:3000"
+    restart: always
+
 volumes:
   postgres-data:
+  mb-data:

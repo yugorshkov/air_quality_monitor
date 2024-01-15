@@ -1,10 +1,11 @@
+import httpx
 import pandas as pd
-import requests
 from pandas import DataFrame
 from prefect import flow, task
 from prefect.artifacts import create_markdown_artifact
 from prefect_sqlalchemy import SqlAlchemyConnector
-from sqlalchemy.types import DateTime, Float
+
+from cities import add_city_to_location
 
 
 @task(retries=3, retry_delay_seconds=[10, 20, 40])
@@ -13,7 +14,8 @@ def load_sensor_data() -> list[dict]:
     Загрузка средних значений всех измерений по каждому датчику за последний час
     """
     url = "https://data.sensor.community/static/v2/data.1h.json"
-    r = requests.get(url, timeout=2)
+    r = httpx.get(url, timeout=5)
+    r.raise_for_status()
 
     return r.json()
 
@@ -33,46 +35,45 @@ def transform_data(data: list[dict]) -> DataFrame:
             ["location", "longitude"],
             ["location", "country"],
             ["sensor", "id"],
-            ["sensor", "sensor_type", "name"],
         ],
     )
     df.drop(columns=["id"], inplace=True)
+    df = df.astype(
+        {
+            "value": float,
+            "timestamp": "datetime64[ns]",
+            "location.id": int,
+            "location.latitude": float,
+            "location.longitude": float,
+            "sensor.id": int,
+        },
+    )
 
     return df
 
 
 @task
-def filter_data(df: DataFrame, cc: list[str], value_types: list[str]) -> DataFrame:
+def create_subsets(df: DataFrame, cc: list[str], value_types: list[str]) -> DataFrame:
     """
     Отбор записей по списку стран и типу измерений
     """
     df.query("`location.country` in @cc and value_type in @value_types", inplace=True)
+    measurements = df[["sensor.id", "timestamp", "location.id", "value_type", "value"]]
+    locations = df.filter(regex="location").drop_duplicates()
 
-    return df
+    return measurements, locations
 
 
 @task
-def export_data_to_postgres(df: DataFrame) -> None:
+def export_data_to_postgres(df: DataFrame, table: str, if_exists: str) -> None:
     """
     Запись данных в Postgres
     """
-    cols_datatype = {
-        "value": Float(),
-        "timestamp": DateTime(),
-        "location.latitude": Float(),
-        "location.longitude": Float(),
-    }
     database_block = SqlAlchemyConnector.load("postgres")
     engine = database_block.get_client(client_type="engine")
-    written_rows = df.to_sql(
-        name="test",
-        con=engine,
-        if_exists="replace",
-        index=False,
-        dtype=cols_datatype,
-    )
+    df.to_sql(name=table, con=engine, if_exists=if_exists, index=False)
 
-    create_markdown_artifact(f"Записано строк в Postgres: {written_rows}")
+    create_markdown_artifact(f"Записано строк в Postgres: {len(df)}")
 
 
 @flow
@@ -80,9 +81,11 @@ def main():
     sensor_data = load_sensor_data()
     df = transform_data(sensor_data)
     cc = ["RU"]
-    value_types = ["P1", "P2"]
-    filtered_df = filter_data(df, cc, value_types)
-    export_data_to_postgres(filtered_df)
+    value_types = ["P1", "P2", "temperature", "humidity"]
+    measurements, locations = create_subsets(df, cc, value_types)
+    locations = add_city_to_location(locations)
+    export_data_to_postgres(measurements, "sensor", "append")
+    export_data_to_postgres(locations, "location", "replace")
 
 
 if __name__ == "__main__":
