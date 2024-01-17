@@ -76,7 +76,7 @@ def export_data_to_postgres(df: DataFrame, table: str, if_exists: str) -> None:
     create_markdown_artifact(f"Записано строк в Postgres: {len(df)}")
 
 
-@flow
+@flow(name="air_quality_monitor_etl")
 def main():
     sensor_data = load_sensor_data()
     df = transform_data(sensor_data)
@@ -89,4 +89,5 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    main.serve(name="AQM-docker")
+    

@@ -14,7 +14,7 @@ def get_city(client: Dadata, lat: float, lon: float) -> str:
     result = client.geolocate(
         name="address", lat=lat, lon=lon, count=1, radius_meters=1000
     )
-    return result[0]["data"]["city"]
+    return result[0]["data"]["city"] or result[0]["data"]["settlement"]
 
 
 @task

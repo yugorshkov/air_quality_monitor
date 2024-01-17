@@ -7,13 +7,12 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "~3.11"
-requests = "^2.31.0"
+httpx = "^0.26.0"
 pandas = "^2.1.4"
 prefect = "^2.14.13"
 prefect-sqlalchemy = "^0.3.2"
 psycopg2-binary = "^2.9.9"
 dadata = "^21.10.1"
-tqdm = "^4.66.1"
 
 
 [tool.poetry.group.dev.dependencies]

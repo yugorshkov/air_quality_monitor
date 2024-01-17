@@ -1,4 +1,10 @@
 services:
+  aqm_etl_flow_prefect:
+    image: imageName
+    env_file:
+      - .env
+    restart: always
+
   postgres:
     container_name: postgres
     image: postgres:latest
