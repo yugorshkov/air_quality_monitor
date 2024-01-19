@@ -28,14 +28,14 @@ resource "twc_ssh_key" "main" {
 }
 
 resource "twc_server" "vm1" {
-  name = "RG_flow_server"
+  name = "air_quality_monitor"
   os_id = data.twc_software.docker.os[0].id
   software_id = data.twc_software.docker.id
 
   configuration {
     configurator_id = data.twc_configurator.conf.id
     cpu = 2
-    ram = 1024 * 4
+    ram = 1024 * 2
     disk = 1024 * 10
   }
 
