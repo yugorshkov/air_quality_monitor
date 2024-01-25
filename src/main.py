@@ -65,7 +65,7 @@ def create_subsets(df: DataFrame, cc: list[str], value_types: list[str]) -> Data
 
 
 @task
-def export_data_to_postgres(df: DataFrame, table: str, if_exists: str) -> None:
+def write_data_to_postgres(df: DataFrame, table: str, if_exists: str) -> None:
     """
     Запись данных в Postgres
     """
@@ -73,7 +73,7 @@ def export_data_to_postgres(df: DataFrame, table: str, if_exists: str) -> None:
     engine = database_block.get_client(client_type="engine")
     df.to_sql(name=table, con=engine, if_exists=if_exists, index=False)
 
-    create_markdown_artifact(f"Записано строк в Postgres: {len(df)}")
+    create_markdown_artifact(f"Записано строк в таблицу **{table}**: {len(df)}")
 
 
 @flow(name="air_quality_monitor_etl")
@@ -83,11 +83,10 @@ def main():
     cc = ["RU"]
     value_types = ["P1", "P2", "temperature", "humidity"]
     measurements, locations = create_subsets(df, cc, value_types)
+    write_data_to_postgres(measurements, "sensor", "append")
     locations = add_city_to_location(locations)
-    export_data_to_postgres(measurements, "sensor", "append")
-    export_data_to_postgres(locations, "location", "replace")
+    write_data_to_postgres(locations, "location", "append")
 
 
 if __name__ == "__main__":
     main.serve(name="AQM-docker")
-    
