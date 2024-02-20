@@ -1,43 +1,39 @@
-terraform {
-  required_providers {
-    twc = {
-      source = "tf.timeweb.cloud/timeweb-cloud/timeweb-cloud"
-    }
-  }
-  required_version = ">= 0.13"
-}
-
 provider "twc" {
-  token = var.token
+  token = var.timeweb_token
 }
 
-data "twc_configurator" "conf" {
+data "twc_configurator" "server-config" {
   location = "ru-1"
 }
+
 data "twc_software" "docker" {
   name = "Docker"
+
   os {
     name = "ubuntu"
     version = "22.04"
   }
 }
 
-resource "twc_ssh_key" "main" {
+resource "twc_ssh_key" "twc-ssh" {
   name = "tw_terraform_key"
   body = file("~/.ssh/timeweb.pub")
 }
 
-resource "twc_server" "vm1" {
-  name = "air_quality_monitor"
+resource "twc_server" "aqm" {
+  name = "aqm"
   os_id = data.twc_software.docker.os[0].id
   software_id = data.twc_software.docker.id
 
   configuration {
-    configurator_id = data.twc_configurator.conf.id
-    cpu = 2
-    ram = 1024 * 2
+    configurator_id = data.twc_configurator.server-config.id
     disk = 1024 * 10
+    cpu = 1
+    ram = 1024 * 2
   }
-
-  ssh_keys_ids = [twc_ssh_key.main.id]
+  local_network {
+    id = twc_vpc.network.id
+  }
+  ssh_keys_ids = [ twc_ssh_key.twc-ssh.id ]
+  depends_on = [ twc_vpc.network ]
 }
